@@ -1,0 +1,4 @@
+.env
+bot.log
+bot_database.db
+export.txt

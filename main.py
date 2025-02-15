@@ -12,7 +12,6 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from dotenv import load_dotenv
 
-# Загрузка переменных окружения
 load_dotenv()
 
 # Настройка логирования
@@ -34,8 +33,6 @@ bot = Bot(
 )
 dp = Dispatcher()
 
-
-# Класс для работы с базой данных
 class Database:
     def __init__(self):
         self.conn = sqlite3.connect("bot_database.db")
@@ -59,18 +56,15 @@ class Database:
         try:
             with self.conn:
                 self.conn.execute("""
-                    INSERT INTO users (
-                        user_id, username, first_name, last_name,
-                        language_code, is_bot, date_joined
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (
                     user.id,
                     user.username,
                     user.first_name,
                     user.last_name,
                     user.language_code,
-                    user.is_bot,
-                    datetime.now()
+                    int(user.is_bot),
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 ))
             return True
         except sqlite3.IntegrityError:
@@ -105,73 +99,119 @@ class Database:
     def close(self):
         self.conn.close()
 
-
-# Инициализация базы данных
 db = Database()
-
 
 class BroadcastState(StatesGroup):
     waiting_for_content = State()
     waiting_for_confirmation = State()
 
-
-# Команда помощи
-@dp.message(Command("help"))
-async def cmd_help(message: Message):
-    commands = get_available_commands(message.from_user.id in ADMIN_IDS)
-    await message.answer(f"📜 Доступные команды:\n{commands}")
-
-
 def get_available_commands(is_admin: bool) -> str:
     user_commands = """
-👤 Команды для пользователей:
-/start - Подписаться на рассылку
-/unsubscribe - Отписаться от рассылки
-/help - Показать это сообщение
-    """
+<b>👤 Основные команды:</b>
+🔄/start - Начать винное путешествие
+🚫/unsubscribe - Выйти из рассылки
+🗺️/location - Найти бутик с магией вин
+🛍️/shop - Онлайн-магазин
+📞/contacts - Связаться с сомелье
+🌐/social - Присоединиться к нашему сообществу
+💡/help - Показать эту подсказку
+"""
 
     admin_commands = """
-🛠 Админ-команды:
-/stats - Статистика пользователей
-/broadcast - Сделать рассылку
-/viewdb - Просмотр базы данных
-/exportdb - Экспорт базы данных
-    """ if is_admin else ""
+<b>🛠 Админ-команды:</b>
+/stats - Статистика
+/broadcast - Рассылка
+/viewdb - Просмотр БД
+/exportdb - Экспорт БД
+""" if is_admin else ""
 
     return user_commands + admin_commands
 
+@dp.message(Command("help"))
+async def cmd_help(message: Message):
+    commands = get_available_commands(message.from_user.id in ADMIN_IDS)
+    await message.answer(f"<b>📜 Доступные команды:</b>\n{commands}")
 
-# Команда старта
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
     try:
         if db.add_user(message.from_user):
             if message.from_user.id in ADMIN_IDS:
-                text = "👋 Привет, администратор!\nКоманды: /help"
+                text = "👋 <b>Привет, администратор!</b> Используй /help для списка команд"
             else:
-                text = "📨 Привет! Отписаться: /unsubscribe"
+                text = (
+                    "🍷 <b>Добро пожаловать в мир Drinx!</b> Я ваш персональный гид по винам\n\n"
+                    "✨ <b>Что я могу для вас сделать:</b>\n"
+                    "🔥 Расскажу об эксклюзивных акциях— секретные скидки, редкие коллекции и дегустации\n\n"
+                    "🗺️ Найдете нас за 60 секунд — раскрою адрес бутика с волшебной атмосферой\n\n"
+                    "🛍️ Открою <a href='https://vrn.luding.ru/'>онлайн-магазин</a>\n\n"
+                    "👪🍷 Познакомлю с нашей дружной семьей в соцсетях\n\n"
+                    "📞 Всегда на связи — подскажу контакты для персональных консультаций\n\n"
+                    "💡 Все возможности — в команде /help\n\n"
+                    "<i>P.S. Хотите подарок? Скажите на кассе «Сырная тарелка🧀✨» "
+                    "и получите повышенную скидку!</i>"
+                )
             await message.answer(text)
         else:
-            await message.answer("Вы уже подписаны!")
+            await message.answer(
+                f"🎉 <b>С возвращением, {message.from_user.first_name}!</b> 🍇\n\n"
+                "Ваш доступ к винной вселенной активирован!\n"
+                "Нужна помощь? Напишите /help"
+            )
     except Exception as e:
         logger.error(f"/start error: {e}")
-        await message.answer("Ошибка, попробуйте позже")
+        await message.answer("⚠️ Ошибка, попробуйте позже")
 
-
-# Команда отписки
 @dp.message(Command("unsubscribe"))
 async def cmd_unsubscribe(message: Message):
     if db.remove_user(message.from_user.id):
-        await message.answer("❌ Отписались")
+        await message.answer("❌ <b>Вы отписались</b> Я буду ждать вас снова!")
     else:
-        await message.answer("Вы не подписаны")
+        await message.answer("ℹ️ Вы не подписаны")
 
+@dp.message(Command("location"))
+async def cmd_location(message: Message):
+    await message.answer(
+        "<b>📍 Наш бутик:</b>\n\n"
+        "🏠 <u>Воронеж</u>\n"
+        "ул. Загоровского, 7к4\n"
+        "⌚ Ежедневно 11:00-23:00\n\n"
+        
+        "<a href='https://yandex.ru/maps/org/drinx/70384019199/?ll=39.185240%2C51.718339&z=16'>🗺️ Открыть в картах</a>"
+    )
 
-# Команда статистики
+@dp.message(Command("shop"))
+async def cmd_shop(message: Message):
+    await message.answer(
+        "<b>🛒 Интернет-магазин Drinx</b>\n\n"
+        "🎁 500+ премиальных вин\n"
+        "🚚 Доставка по РФ за 3-5 дней\n"
+        "💎 Эксклюзивные коллекции\n\n"
+        "<a href='https://vrn.luding.ru/'>👉 Перейти в магазин</a>"
+    )
+
+@dp.message(Command("contacts"))
+async def cmd_contacts(message: Message):
+    await message.answer(
+        "<b>📞 Контакты:</b>\n\n"
+        "☎️ <b>Телефон:</b> +7 (900) 299-91-94 WhatsApp/Telegram\n"
+        "⌚ <b>Часы работы:</b> 11:00-23:00\n\n"
+
+    )
+
+@dp.message(Command("social"))
+async def cmd_social(message: Message):
+    await message.answer(
+        "<b>🌍 Мы в соцсетях:</b>\n\n"
+        "📸 <a href='https://www.instagram.com/drinx_vrn'>Instagram</a>\n"
+        "📘 <a href='https://t.me/drinx_vrn'>Telegram</a>\n"
+
+    )
+
 @dp.message(Command("stats"))
 async def cmd_stats(message: Message):
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("🚫 Доступ запрещен")
+        await message.answer("🚫 <b>Доступ запрещен</b>")
         return
 
     total_users = db.get_all_users()
@@ -180,7 +220,6 @@ async def cmd_stats(message: Message):
     new_users_week = db.get_new_users(7)
     new_users_month = db.get_new_users(30)
 
-    # Сохраняем статистику в Excel
     stats = {
         "Дата": [datetime.now().strftime("%Y-%m-%d")],
         "Всего пользователей": [total_count],
@@ -192,132 +231,92 @@ async def cmd_stats(message: Message):
     df.to_excel("stats.xlsx", index=False)
 
     await message.answer(
-        f"📊 Статистика:\n"
-        f"👤 Всего пользователей: {total_count}\n"
-        f"🆕 Новых за день: {new_users_day}\n"
-        f"🆕 Новых за неделю: {new_users_week}\n"
-        f"🆕 Новых за месяц: {new_users_month}\n"
-        f"📊 Статистика сохранена в stats.xlsx"
+        f"<b>📊 Статистика:</b>\n"
+        f"👤 Всего: {total_count}\n"
+        f"🆕 За день: {new_users_day}\n"
+        f"🆕 За неделю: {new_users_week}\n"
+        f"🆕 За месяц: {new_users_month}"
     )
     await message.answer_document(FSInputFile("stats.xlsx"))
 
-
-# Команда просмотра БД
 @dp.message(Command("viewdb"))
 async def cmd_viewdb(message: Message):
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("🚫 Доступ запрещен")
+        await message.answer("🚫 <b>Доступ запрещен</b>")
         return
 
     users = db.get_all_users()
-    response = "📋 Содержимое базы данных:\n"
+    response = "<b>📋 База данных:</b>\n"
     for user in users:
-        response += f"ID: {user[0]}, Имя: {user[2]}, Дата регистрации: {user[6]}\n"
+        response += f"ID: {user[0]}, Имя: {user[2]}, Дата: {user[6][:10]}\n"
+    await message.answer(response[:4000])
 
-    await message.answer(response[:4000])  # Ограничение Telegram
-
-
-# Команда экспорта БД
 @dp.message(Command("exportdb"))
 async def cmd_exportdb(message: Message):
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("🚫 Доступ запрещен")
+        await message.answer("🚫 <b>Доступ запрещен</b>")
         return
 
     try:
         filename = db.export_to_csv()
         await message.answer_document(FSInputFile(filename))
     except Exception as e:
-        logger.error(f"Ошибка экспорта БД: {e}")
-        await message.answer("❌ Ошибка при экспорте базы данных")
+        logger.error(f"Export error: {e}")
+        await message.answer("❌ Ошибка экспорта")
 
-
-# Команда рассылки
 @dp.message(Command("broadcast"))
 async def cmd_broadcast(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("🚫 Доступ запрещен")
+        await message.answer("🚫 <b>Доступ запрещен</b>")
         return
 
-    await message.answer(
-        "📤 Отправьте сообщение для рассылки.\n"
-        "Поддерживается текст и файлы."
-    )
+    await message.answer("📤 Отправьте сообщение для рассылки:")
     await state.set_state(BroadcastState.waiting_for_content)
-
 
 @dp.message(BroadcastState.waiting_for_content, F.document | F.text)
 async def process_broadcast_content(message: Message, state: FSMContext):
-    await state.update_data(content=message.html_text, file_id=message.document.file_id if message.document else None)
-    await message.answer(
-        "Вы уверены, что хотите начать рассылку?\n"
-        "Напишите 'да' для подтверждения или 'нет' для отмены."
-    )
+    content = message.html_text
+    file_id = message.document.file_id if message.document else None
+    await state.update_data(content=content, file_id=file_id)
+    await message.answer("✅ Начать рассылку? Ответьте 'да' или 'нет'")
     await state.set_state(BroadcastState.waiting_for_confirmation)
-
 
 @dp.message(BroadcastState.waiting_for_confirmation, F.text.lower() == "да")
 async def confirm_broadcast(message: Message, state: FSMContext):
     data = await state.get_data()
-    content = data.get("content")
-    file_id = data.get("file_id")
-
     users = db.get_all_users()
     success, errors = 0, 0
 
     for user in users:
         try:
-            if file_id:
-                await bot.send_document(
-                    chat_id=user[0],
-                    document=file_id,
-                    caption=content
-                )
+            if data['file_id']:
+                await bot.send_document(user[0], data['file_id'], caption=data['content'])
             else:
-                await bot.send_message(
-                    chat_id=user[0],
-                    text=content
-                )
+                await bot.send_message(user[0], data['content'])
             success += 1
         except Exception as e:
             errors += 1
             logger.error(f"Error to {user[0]}: {e}")
 
-    await message.answer(
-        f"✅ Рассылка завершена\n"
-        f"Успешно: {success}\n"
-        f"Ошибок: {errors}"
-    )
+    await message.answer(f"✅ Успешно: {success}\n❌ Ошибок: {errors}")
     await state.clear()
-
 
 @dp.message(BroadcastState.waiting_for_confirmation, F.text.lower() == "нет")
 async def cancel_broadcast(message: Message, state: FSMContext):
     await message.answer("❌ Рассылка отменена")
     await state.clear()
 
-
-# Основной обработчик неизвестных команд
-@dp.message(F.text)  # Фильтр для текстовых сообщений
+@dp.message(F.text)
 async def unknown_command(message: Message):
-    # Проверяем, начинается ли сообщение с "/" (команда)
     if message.text.startswith("/"):
         commands = get_available_commands(message.from_user.id in ADMIN_IDS)
-        await message.answer(
-            f"❌ Команда '{message.text}' не найдена.\n"
-            f"Используйте /help для просмотра доступных команд:\n"
-            f"{commands}"
-        )
+        await message.answer(f"❌ Неизвестная команда\n{commands}")
 
-
-# Запуск бота
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
     db.close()
 
-
 if __name__ == "__main__":
     import asyncio
-
     asyncio.run(main())

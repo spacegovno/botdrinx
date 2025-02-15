@@ -2,3 +2,5 @@
 bot.log
 bot_database.db
 export.txt
+stats.xlsx
+database_export.csv

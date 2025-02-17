@@ -1,6 +1,6 @@
-.env
-bot.log
-bot_database.db
-export.txt
-stats.xlsx
-database_export.csv
+./.env
+./bot.log
+./bot_database.db
+./export.txt
+./stats.xlsx
+./database_export.csv
